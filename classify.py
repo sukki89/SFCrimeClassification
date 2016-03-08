@@ -4,7 +4,7 @@ import math
 import zipfile
 import matplotlib.pyplot as plt
 from sklearn.neighbors import KNeighborsClassifier
-
+from sklearn import preprocessing
 
 def llfun(act, pred):
     """ Logloss function for 1/0 probability
@@ -12,11 +12,35 @@ def llfun(act, pred):
     return (-(~(act == pred)).astype(int) * math.log(1e-15)).sum() / len(act)
 
 def readData():
-    train = pd.read_csv('data/train.csv', parse_dates=['Dates'])[['X', 'Y', 'Category']]
+    train = pd.read_csv('data/train.csv', parse_dates=['Dates'])
     test = pd.read_csv('data/test.csv', parse_dates=['Dates'])
     print("Number of cases in the training set: %s" % len(train))
     print("Number of cases in the testing set: %s" % len(test))
     return (train,test)
+
+def applyFunction(train, check, outputCol):
+    train[outputCol] = train.apply(lambda x:1 if x is check else 0 , axis=0)
+    return train 
+
+def convertToFeatures(train):
+    train = applyFunction(train, "Sunday", "sun")
+    train = applyFunction(train, "Monday", "mon")
+    train = applyFunction(train, "Tuesday", "tues")
+    train = applyFunction(train, "Wedday", "wed")
+    train = applyFunction(train, "Thursday", "thur")
+    train = applyFunction(train, "Friday", "fri")
+    train = applyFunction(train, "Saturday", "sat")
+    train = applyFunction(train, "BAYVIEW", "BAYVIEW")
+    train = applyFunction(train, "CENTRAL", "CENTRAL")
+    train = applyFunction(train, "INGLESIDE", "INGLESIDE")
+    train = applyFunction(train, "MISSION", "MISSION")
+    train = applyFunction(train, "NORTHERN", "NORTHERN")
+    train = applyFunction(train, "PARK", "PARK")
+    train = applyFunction(train, "RICHMOND", "RICHMOND")
+    train = applyFunction(train, "SOUTHERN", "SOUTHERN")
+    train = applyFunction(train, "TARAVAL", "TARAVAL")
+    train = applyFunction(train, "TENDERLOIN", "TENDERLOIN")
+    return train 
 
 def divideIntoTrainAndEvaluationSet(fraction, train):
     msk = np.random.rand(len(train)) < fraction
@@ -65,15 +89,16 @@ def knnClassifier(train, evaluate, test):
     knn = KNeighborsClassifier(n_neighbors=40)
     knn.fit(x, y)
     outcomes = knn.predict(x_test)
-    return outcomes    
+    #return outcomes 
+   
 # Move this to a separate function later
-'''
+
     submit = pd.DataFrame({'Id': test.Id.tolist()})
     for category in y.cat.categories:
         submit[category] = np.where(outcomes == category, 1, 0)
     
     submit.to_csv('k_nearest_neigbour.csv', index = False)
-'''
+
     
 def svmClassifier(train, test):
     print('In SVM')
@@ -88,10 +113,15 @@ def dtreesClassifier(train, test):
 	
 def main():
    (train, test) = readData()
+   print train.columns.values
+   train = convertToFeatures(train)
+   test = convertToFeatures(test)
+   print train.columns.values
    (trainOnly,evaluateOnly) = divideIntoTrainAndEvaluationSet(0.8, train)
    
+   '''
    # Call the classifiers - replace with your classifier
    predictedLabels = classify("knn",trainOnly, evaluateOnly, test)
-   print(pridictedLabels)
-
+   print(predictedLabels)
+   '''
 main()
