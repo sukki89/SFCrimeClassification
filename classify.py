@@ -18,28 +18,28 @@ def readData():
     print("Number of cases in the testing set: %s" % len(test))
     return (train,test)
 
-def applyFunction(train, check, outputCol):
-    train[outputCol] = train.apply(lambda x:1 if x is check else 0 , axis=0)
+def applyFunction(train, inputCol, check, outputCol):
+    train[outputCol] = train[inputCol].apply(lambda x:1 if x == check else 0 )
     return train 
 
 def convertToFeatures(train):
-    train = applyFunction(train, "Sunday", "sun")
-    train = applyFunction(train, "Monday", "mon")
-    train = applyFunction(train, "Tuesday", "tues")
-    train = applyFunction(train, "Wedday", "wed")
-    train = applyFunction(train, "Thursday", "thur")
-    train = applyFunction(train, "Friday", "fri")
-    train = applyFunction(train, "Saturday", "sat")
-    train = applyFunction(train, "BAYVIEW", "BAYVIEW")
-    train = applyFunction(train, "CENTRAL", "CENTRAL")
-    train = applyFunction(train, "INGLESIDE", "INGLESIDE")
-    train = applyFunction(train, "MISSION", "MISSION")
-    train = applyFunction(train, "NORTHERN", "NORTHERN")
-    train = applyFunction(train, "PARK", "PARK")
-    train = applyFunction(train, "RICHMOND", "RICHMOND")
-    train = applyFunction(train, "SOUTHERN", "SOUTHERN")
-    train = applyFunction(train, "TARAVAL", "TARAVAL")
-    train = applyFunction(train, "TENDERLOIN", "TENDERLOIN")
+    train = applyFunction(train, 'DayOfWeek',"Sunday", "sun")
+    train = applyFunction(train, 'DayOfWeek',"Monday", "mon")
+    train = applyFunction(train, 'DayOfWeek', "Tuesday", "tues")
+    train = applyFunction(train, 'DayOfWeek',"Wednesday", "wed")
+    train = applyFunction(train, 'DayOfWeek',"Thursday", "thur")
+    train = applyFunction(train, 'DayOfWeek',"Friday", "fri")
+    train = applyFunction(train, 'DayOfWeek',"Saturday", "sat")
+    train = applyFunction(train, 'PdDistrict',"BAYVIEW", "BAYVIEW")
+    train = applyFunction(train, 'PdDistrict',"CENTRAL", "CENTRAL")
+    train = applyFunction(train, 'PdDistrict',"INGLESIDE", "INGLESIDE")
+    train = applyFunction(train, 'PdDistrict',"MISSION", "MISSION")
+    train = applyFunction(train, 'PdDistrict',"NORTHERN", "NORTHERN")
+    train = applyFunction(train, 'PdDistrict',"PARK", "PARK")
+    train = applyFunction(train, 'PdDistrict',"RICHMOND", "RICHMOND")
+    train = applyFunction(train, 'PdDistrict',"SOUTHERN", "SOUTHERN")
+    train = applyFunction(train, 'PdDistrict',"TARAVAL", "TARAVAL")
+    train = applyFunction(train, 'PdDistrict',"TENDERLOIN", "TENDERLOIN")
     return train 
 
 def divideIntoTrainAndEvaluationSet(fraction, train):
@@ -91,7 +91,7 @@ def knnClassifier(train, evaluate, test):
     outcomes = knn.predict(x_test)
     #return outcomes 
    
-# Move this to a separate function later
+    # Move this to a separate function later
 
     submit = pd.DataFrame({'Id': test.Id.tolist()})
     for category in y.cat.categories:
@@ -117,11 +117,12 @@ def main():
    train = convertToFeatures(train)
    test = convertToFeatures(test)
    print train.columns.values
+   print train[1115:1130]
    (trainOnly,evaluateOnly) = divideIntoTrainAndEvaluationSet(0.8, train)
    
-   '''
+
    # Call the classifiers - replace with your classifier
-   predictedLabels = classify("knn",trainOnly, evaluateOnly, test)
-   print(predictedLabels)
-   '''
+   #predictedLabels = classify("knn",trainOnly, evaluateOnly, test)
+   #print(predictedLabels)
+   
 main()
