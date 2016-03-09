@@ -42,6 +42,9 @@ def convertToFeatures(train):
     train = applyFunction(train, 'PdDistrict',"TENDERLOIN", "TENDERLOIN")
     return train 
 
+def sliceByCategory(categories, train):
+    trainWithCategories = train.loc[df['cateogory'].isin(categories)]
+	
 def divideIntoTrainAndEvaluationSet(fraction, train):
     msk = np.random.rand(len(train)) < fraction
     trainOnly = train[msk]
@@ -65,40 +68,16 @@ def classify(name, train, evaluate, test):
 
 def knnClassifier(train, evaluate, test):
     print('In K nerarest neighbour')
-    x = train[['X', 'Y']]
+    x = train[['BAYVIEW','CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN']]
     y = train['Category'].astype('category')
     actual = evaluate['Category'].astype('category')
-
-    # Fit
-    logloss = []
-    for i in range(1, 50, 1):
-        knn = KNeighborsClassifier(n_neighbors=i)
-        knn.fit(x, y)
-    
-        # Predict on test set
-        outcome = knn.predict(evaluate[['X', 'Y']])
-    
-        # Logloss
-        logloss.append(llfun(actual, outcome))
-
-    plt.plot(logloss)
-    plt.savefig('n_neighbors_vs_logloss.png')
    
     # Fit test data
-    x_test = test[['X', 'Y']]
+    x_test = test#[['BAYVIEW','CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN']]
     knn = KNeighborsClassifier(n_neighbors=40)
     knn.fit(x, y)
     outcomes = knn.predict(x_test)
-    #return outcomes 
-   
-    # Move this to a separate function later
-
-    submit = pd.DataFrame({'Id': test.Id.tolist()})
-    for category in y.cat.categories:
-        submit[category] = np.where(outcomes == category, 1, 0)
-    
-    submit.to_csv('k_nearest_neigbour.csv', index = False)
-
+    print llfun(y,outcomes)
     
 def svmClassifier(train, test):
     print('In SVM')
@@ -116,13 +95,21 @@ def main():
    print train.columns.values
    train = convertToFeatures(train)
    test = convertToFeatures(test)
-   print train.columns.values
-   print train[1115:1130]
-   (trainOnly,evaluateOnly) = divideIntoTrainAndEvaluationSet(0.8, train)
+   #print train.columns.values
+   
+   # Keep only top 10 categories
+   #trainWithTopCategories = sliceByCategory(, train)
+   #testWithTopCategories = 
+
+   # Keep only specific columns
+   trainNeeded = train[['Category','BAYVIEW','CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN']]
+   testNeeded = test[['BAYVIEW','CENTRAL','INGLESIDE','MISSION','NORTHERN','PARK','RICHMOND','SOUTHERN','TARAVAL','TENDERLOIN']]
+   # Divide into Train and Evaluation set
+   (trainOnly,evaluateOnly) = divideIntoTrainAndEvaluationSet(0.8, trainNeeded)
    
 
    # Call the classifiers - replace with your classifier
-   #predictedLabels = classify("knn",trainOnly, evaluateOnly, test)
+   predictedLabels = classify("knn",trainOnly, evaluateOnly, test)
    #print(predictedLabels)
    
 main()
