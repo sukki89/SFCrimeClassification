@@ -1,0 +1,221 @@
+import pandas as pd
+import numpy as np
+import math
+import zipfile
+import matplotlib.pyplot as plt
+from sklearn import tree
+from sklearn.externals.six import StringIO
+from sklearn.cluster import KMeans
+from datetime import datetime
+from sklearn.ensemble import RandomForestClassifier as rfc
+
+def readData():
+    train = pd.read_csv('data/train.csv')
+    test = pd.read_csv('data/test.csv')
+    print("Number of cases in the training set: %s" % len(train))
+    print("Number of cases in the testing set: %s" % len(test))
+    return (train,test)
+
+def divideIntoTrainAndEvaluationSet(fraction, train):
+    msk = np.random.rand(len(train)) < fraction
+    trainOnly = train[msk]
+    evaluateOnly = train[~msk]
+    print("Number of cases in the training only set: %s" % len(trainOnly))
+    print("Number of cases in the evaluation  set: %s" % len(evaluateOnly))
+    return(trainOnly,evaluateOnly)
+
+def applyFunction(train, inputCol, check, outputCol):
+    train[outputCol] = train[inputCol].apply(lambda x:1 if x == check else 0 )
+    return train
+
+def convertToFeatures(train):
+    train = applyFunction(train, 'DayOfWeek',"Sunday", "sun")
+    train = applyFunction(train, 'DayOfWeek',"Monday", "mon")
+    train = applyFunction(train, 'DayOfWeek', "Tuesday", "tues")
+    train = applyFunction(train, 'DayOfWeek',"Wednesday", "wed")
+    train = applyFunction(train, 'DayOfWeek',"Thursday", "thur")
+    train = applyFunction(train, 'DayOfWeek',"Friday", "fri")
+    train = applyFunction(train, 'DayOfWeek',"Saturday", "sat")
+    train = applyFunction(train, 'PdDistrict',"BAYVIEW", "BAYVIEW")
+    train = applyFunction(train, 'PdDistrict',"CENTRAL", "CENTRAL")
+    train = applyFunction(train, 'PdDistrict',"INGLESIDE", "INGLESIDE")
+    train = applyFunction(train, 'PdDistrict',"MISSION", "MISSION")
+    train = applyFunction(train, 'PdDistrict',"NORTHERN", "NORTHERN")
+    train = applyFunction(train, 'PdDistrict',"PARK", "PARK")
+    train = applyFunction(train, 'PdDistrict',"RICHMOND", "RICHMOND")
+    train = applyFunction(train, 'PdDistrict',"SOUTHERN", "SOUTHERN")
+    train = applyFunction(train, 'PdDistrict',"TARAVAL", "TARAVAL")
+    train = applyFunction(train, 'PdDistrict',"TENDERLOIN", "TENDERLOIN")
+    return train
+
+def parse_time(x,type):
+    DD=datetime.strptime(x,"%Y-%m-%d %H:%M:%S")
+    if(type == "time"):
+        return DD.hour#*60+DD.minute
+    if(type == "day"):
+        return DD.day
+    if(type == "month"):
+        return DD.month
+    if(type == "year"):
+        return DD.year
+
+def applyDateFunction(train):
+    train['time'] = train['Dates'].apply(lambda x:parse_time(x,"time"))
+    train['day'] = train['Dates'].apply(lambda x:parse_time(x,"day"))
+    train['month'] = train['Dates'].apply(lambda x:parse_time(x,"month"))
+    train['year'] = train['Dates'].apply(lambda x:parse_time(x,"year"))
+    return train
+
+def kMeansClustering(train,evaluate,test):
+    km = KMeans(n_clusters=40)
+    f_train = km.fit_predict(train[['X','Y']])
+    f_eval = km.predict(evaluate[['X','Y']])
+    f_test = km.predict(test[['X','Y']])
+    #print km.cluster_centers_
+    #print f_train
+    #print f_eval
+    #print f_test
+    return (f_train,f_eval,f_test)
+
+#Subsetting data
+def sliceByCategory(categories, train):
+    trainWithCategories = train.loc[train['Category'].isin(categories)]
+    return trainWithCategories
+
+def llfun(act, pred):
+    """ Logloss function for 1/0 probability
+    """
+    return (-(~(act == pred)).astype(int) * math.log(1e-15)).sum() / len(act)
+
+def dtreesClassifier(train, evaluate, test):
+    print('In Decision Trees')
+
+    x = train[['n_clusters', 'time', 'day', 'month', 'year', 'sun', 'mon', 'tues', 'wed', 'thur', 'fri', 'sat', 'BAYVIEW', 'CENTRAL', 'INGLESIDE', 'MISSION', 'NORTHERN',
+               'PARK', 'RICHMOND', 'SOUTHERN', 'TARAVAL', 'TENDERLOIN']]
+    y = train['Category'].astype('category')
+    actual = evaluate['Category'].astype('category')
+    logloss = []
+
+    # Train the data (create model)
+    dt = tree.DecisionTreeClassifier(criterion="entropy", max_depth=18)
+    dt = dt.fit(x, y)
+
+    outcome = dt.predict(evaluate[['n_clusters', 'time', 'day', 'month', 'year', 'sun', 'mon', 'tues', 'wed', 'thur', 'fri', 'sat', 'BAYVIEW', 'CENTRAL', 'INGLESIDE', 'MISSION', 'NORTHERN',
+    'PARK', 'RICHMOND', 'SOUTHERN', 'TARAVAL', 'TENDERLOIN']])
+
+    #Predict on test data
+    x_test = test[['n_clusters', 'time', 'day', 'month', 'year', 'sun', 'mon', 'tues', 'wed', 'thur', 'fri', 'sat', 'BAYVIEW', 'CENTRAL', 'INGLESIDE', 'MISSION', 'NORTHERN',
+    'PARK', 'RICHMOND', 'SOUTHERN', 'TARAVAL', 'TENDERLOIN']]
+    y_prob = dt.predict_proba(x_test)
+
+    #Creating Dataframe
+    cols = ['WARRANTS', 'OTHER OFFENSES', 'LARCENY/THEFT', 'VEHICLE THEFT', 'VANDALISM', 'NON-CRIMINAL', 'ROBBERY',
+          'ASSAULT', 'WEAPON LAWS', 'BURGLARY', 'SUSPICIOUS OCC', 'DRUNKENNESS', 'FORGERY/COUNTERFEITING',
+          'DRUG/NARCOTIC', 'STOLEN PROPERTY', 'SECONDARY CODES', 'TRESPASS', 'MISSING PERSON', 'FRAUD', 'KIDNAPPING',
+          'RUNAWAY', 'DRIVING UNDER THE INFLUENCE', 'SEX OFFENSES FORCIBLE', 'PROSTITUTION', 'DISORDERLY CONDUCT',
+          'ARSON', 'FAMILY OFFENSES', 'LIQUOR LAWS', 'BRIBERY', 'EMBEZZLEMENT', 'SUICIDE', 'LOITERING',
+          'SEX OFFENSES NON FORCIBLE', 'EXTORTION', 'GAMBLING', 'BAD CHECKS', 'TREA', 'RECOVERED VEHICLE',
+          'PORNOGRAPHY/OBSCENE MAT']
+
+    #Dataframe of probabilities
+    rows, col =  (y_prob.shape)
+    #print ('############ ROWS' + str(rows))
+    zero_data = np.zeros(shape=(rows, 39))
+    df = pd.DataFrame(zero_data,columns=cols)
+    print ('Dataframe created')
+    for index in range(0, rows):
+        df.loc[index,'LARCENY/THEFT'] = y_prob.item((index,0))
+        df.loc[index,'OTHER OFFENSES'] = y_prob.item((index,1))
+        df.loc[index,'NON-CRIMINAL'] = y_prob.item((index,2))
+        df.loc[index,'ASSAULT'] = y_prob.item((index,3))
+        df.loc[index,'DRUG/NARCOTIC'] = y_prob.item((index,4))
+
+    df.to_csv('dtree_prob.csv', sep=',')
+
+    outcomes= dt.predict(x_test)
+    return outcomes
+
+def rforestClassifier(train, evaluate, test):
+    print('In Random Forests')
+
+    x = train[['n_clusters', 'time', 'day', 'month', 'year', 'sun', 'mon', 'tues', 'wed', 'thur', 'fri', 'sat', 'BAYVIEW', 'CENTRAL', 'INGLESIDE', 'MISSION', 'NORTHERN',
+               'PARK', 'RICHMOND', 'SOUTHERN', 'TARAVAL', 'TENDERLOIN']]
+    y = train['Category'].astype('category')
+    actual = evaluate['Category'].astype('category')
+    logloss = []
+
+    # Train the data (create model)
+    for i in range(40,70,1):
+        #forest_v = rfc(n_estimators=i, oob_score=True)
+        forest_v = rfc(n_estimators=50, oob_score=True)#optimal
+        forest = forest_v.fit(x, y)
+
+        outcome = forest.predict(evaluate[['n_clusters', 'time', 'day', 'month', 'year', 'sun', 'mon', 'tues', 'wed', 'thur', 'fri', 'sat', 'BAYVIEW', 'CENTRAL', 'INGLESIDE', 'MISSION', 'NORTHERN',
+        'PARK', 'RICHMOND', 'SOUTHERN', 'TARAVAL', 'TENDERLOIN']])
+
+        # Logloss
+        ll = llfun(actual, outcome)
+
+    #Predict on test data
+    x_test = test[['n_clusters', 'time', 'day', 'month', 'year', 'sun', 'mon', 'tues', 'wed', 'thur', 'fri', 'sat', 'BAYVIEW', 'CENTRAL', 'INGLESIDE', 'MISSION', 'NORTHERN',
+    'PARK', 'RICHMOND', 'SOUTHERN', 'TARAVAL', 'TENDERLOIN']]
+    y_prob = forest.predict_proba(x_test)
+
+    #Creating Dataframe
+    cols = ['WARRANTS', 'OTHER OFFENSES', 'LARCENY/THEFT', 'VEHICLE THEFT', 'VANDALISM', 'NON-CRIMINAL', 'ROBBERY',
+          'ASSAULT', 'WEAPON LAWS', 'BURGLARY', 'SUSPICIOUS OCC', 'DRUNKENNESS', 'FORGERY/COUNTERFEITING',
+          'DRUG/NARCOTIC', 'STOLEN PROPERTY', 'SECONDARY CODES', 'TRESPASS', 'MISSING PERSON', 'FRAUD', 'KIDNAPPING',
+          'RUNAWAY', 'DRIVING UNDER THE INFLUENCE', 'SEX OFFENSES FORCIBLE', 'PROSTITUTION', 'DISORDERLY CONDUCT',
+          'ARSON', 'FAMILY OFFENSES', 'LIQUOR LAWS', 'BRIBERY', 'EMBEZZLEMENT', 'SUICIDE', 'LOITERING',
+          'SEX OFFENSES NON FORCIBLE', 'EXTORTION', 'GAMBLING', 'BAD CHECKS', 'TREA', 'RECOVERED VEHICLE',
+          'PORNOGRAPHY/OBSCENE MAT']
+
+    #Dataframe of probabilities
+    rows, col =  (y_prob.shape)
+    #print ('############ ROWS' + str(rows))
+    zero_data = np.zeros(shape=(rows, 39))
+    df = pd.DataFrame(zero_data,columns=cols)
+    print ('Dataframe created')
+    for index in range(0, rows):
+        df.loc[index,'LARCENY/THEFT'] = y_prob.item((index,0))
+        df.loc[index,'OTHER OFFENSES'] = y_prob.item((index,1))
+        df.loc[index,'NON-CRIMINAL'] = y_prob.item((index,2))
+        df.loc[index,'ASSAULT'] = y_prob.item((index,3))
+        df.loc[index,'DRUG/NARCOTIC'] = y_prob.item((index,4))
+
+    df.to_csv('random_forest.csv', sep=',')
+
+    outcomes= forest.predict(x_test)
+    return outcomes
+
+
+
+    return outcome
+
+
+def main():
+    (train, test) = readData()
+    some_categories = ["LARCENY/THEFT", "OTHER OFFENSES", "NON-CRIMINAL","ASSAULT", "DRUG/NARCOTIC"]
+    train = sliceByCategory(some_categories, train)
+
+    train = convertToFeatures(train)
+    test = convertToFeatures(test)
+
+    train = applyDateFunction(train)
+    test = applyDateFunction(test)
+
+    (trainOnly,evaluateOnly) = divideIntoTrainAndEvaluationSet(0.8, train)
+    (f_train,f_eval,f_test)=kMeansClustering(trainOnly,evaluateOnly,test)
+    trainOnly["n_clusters"] = f_train
+    evaluateOnly["n_clusters"] = f_eval
+    test["n_clusters"] = f_test
+
+    #Decision Tress
+    predictedLabels = dtreesClassifier(trainOnly, evaluateOnly, test)
+    print(predictedLabels)
+
+    #Random Forests
+    predictedLabels = rforestClassifier(trainOnly, evaluateOnly, test)
+    print(predictedLabels)
+
+main()
