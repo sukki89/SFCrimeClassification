@@ -10,10 +10,6 @@ naivebayes.py: Implemnents Naive Bayes
 dtressAndRForests.py: Implements Decision Trees and Random Forests
 logistic.py: Implements Logistic Regression and the plots
 
-All the *.png are visualizations that support our claim
-Project Report has the detailed explanation of procedure and the methods used to classify the data
-Project Slides have the overview of the results and the procedure used
-
 Python version: 2.7
 Scikit Learn: 0.18
 
